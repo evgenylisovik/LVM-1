@@ -1,7 +1,11 @@
-####Введение в работу с LVM 
-##Уменьшение корневого раздела до 8ГБ:
-`[vagrant@lvm ~]$ lsblk
+# Введение в работу с LVM
+
+## Уменьшение корневого раздела до 8ГБ:
+```
+[vagrant@lvm ~]$ lsblk
+
 NAME                    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+
 sda                       8:0    0   40G  0 disk 
 ├─sda1                    8:1    0    1M  0 part 
 ├─sda2                    8:2    0    1G  0 part /boot
@@ -12,9 +16,9 @@ sdb                       8:16   0   10G  0 disk
 sdc                       8:32   0    2G  0 disk 
 sdd                       8:48   0    1G  0 disk 
 sde                       8:64   0    1G  0 disk 
-`
-##Проверяем размер занятый файловой системой и видим что тип ФС xfs.
-`
+```
+#### Проверяем размер занятый файловой системой и видим что тип ФС xfs.
+```
 [root@lvm ~]# df -Th
 Filesystem                      Type      Size  Used Avail Use% Mounted on
 /dev/mapper/VolGroup00-LogVol00 xfs        38G  862M   37G   3% /
@@ -25,30 +29,30 @@ tmpfs                           tmpfs     118M     0  118M   0% /sys/fs/cgroup
 /dev/sda2                       xfs      1014M   63M  952M   7% /boot
 tmpfs                           tmpfs      24M     0   24M   0% /run/user/0
 tmpfs                           tmpfs      24M     0   24M   0% /run/user/1000
-`
-##Так как xfs не умеет уменьшаться необходимо будет создать новый раздел, скопировать в него данные при помощи xfsdump, удалить корневой раздел, создать новый корневой раздел на 8ГБ, восстановить в него данные.
-## Устанавливаем xfsdump
+```
+#### Так как xfs не умеет уменьшаться необходимо будет создать новый раздел, скопировать в него данные при помощи xfsdump, удалить корневой раздел, создать новый корневой раздел на 8ГБ, восстановить в него данные.
+#### Устанавливаем xfsdump
 `
 yum install xfsdump
 `
-##Создаем временный раздел для данных /
-##Создаем PV
-`
+### Создаем временный раздел для данных /
+#### Создаем PV
+```
 [root@lvm ~]# pvcreate /dev/sdb 
   Physical volume "/dev/sdb" successfully created.
-`
-##Создаем VG
-`
+```
+#### Создаем VG
+```
 [root@lvm ~]# vgcreate vg_root /dev/sdb
   Volume group "vg_root" successfully created
-`
-##Создаем LG занимающую все пространство VG
-`
+```
+#### Создаем LG занимающую все пространство VG
+```
 [root@lvm ~]# lvcreate -n lv_root -l +100%FREE /dev/vg_root
   Logical volume "lv_root" created.
-`
-##Создаем ФС xfs на lv_root
-`
+```
+#### Создаем ФС xfs на lv_root
+```
 [root@lvm ~]# mkfs.xfs /dev/vg_root/lv_root
 meta-data=/dev/vg_root/lv_root   isize=512    agcount=4, agsize=655104 blks
          =                       sectsz=512   attr=2, projid32bit=1
@@ -59,13 +63,13 @@ naming   =version 2              bsize=4096   ascii-ci=0 ftype=1
 log      =internal log           bsize=4096   blocks=2560, version=2
          =                       sectsz=512   sunit=0 blks, lazy-count=1
 realtime =none                   extsz=4096   blocks=0, rtextents=0
-`
-##Монтируем данный раздел в /mnt
+```
+#### Монтируем данный раздел в /mnt
 `
 [root@lvm ~]# mount /dev/vg_root/lv_root /mnt
 `
-##Копируем данные с / в /mnt
-`
+#### Копируем данные с / в /mnt
+```
 [root@lvm ~]# xfsdump -J - /dev/VolGroup00/LogVol00 | xfsrestore -J - /mnt
 xfsrestore: using file dump (drive_simple) strategy
 xfsrestore: version 3.1.7 (dump format 3.0)
@@ -109,26 +113,26 @@ xfsdump: dump complete: 6 seconds elapsed
 xfsdump: Dump Status: SUCCESS
 xfsrestore: restore complete: 6 seconds elapsed
 xfsrestore: Restore Status: SUCCESS
-`
-##Смонтируем необходимые для root каталоги
+```
+#### Смонтируем необходимые для root каталоги
 `
 for i in /proc/ /sys/ /dev/ /run/ /boot/; do mount --bind $i /mnt/$i; done 
 `
-##Сделаем подмену корня при помощи chroot
+#### Сделаем подмену корня при помощи chroot
 `
 chroot /mnt/ 
 `
-##Обновим grub
-`
+#### Обновим grub
+```
 grub2-mkconfig -o /boot/grub2/grub.cfg
 Generating grub configuration file ...
 Found linux image: /boot/vmlinuz-3.10.0-862.2.3.el7.x86_64
 Found initrd image: /boot/initramfs-3.10.0-862.2.3.el7.x86_64.img
 Found CentOS Linux release 7.5.1804 (Core)  on /dev/mapper/vg_root-lv_root
 done
-`
-##Обновим образ initrd
-`
+```
+#### Обновим образ initrd
+```
 [root@lvm /]# cd /boot ; for i in `ls initramfs-*img`; do dracut -v $i `echo $i|sed "s/initramfs-//g;  s/.img//g"` --force; done
 Executing: /sbin/dracut -v initramfs-3.10.0-862.2.3.el7.x86_64.img 3.10.0-862.2.3.el7.x86_64 --force
 dracut module 'busybox' will not be installed, because command 'busybox' could not be found!
@@ -184,18 +188,18 @@ Skipping udev rule: 91-permissions.rules
 *** Creating image file ***
 *** Creating image file done ***
 *** Creating initramfs image file '/boot/initramfs-3.10.0-862.2.3.el7.x86_64.img' done ***
-`
-##Меняем логический том с / в файле grub.cfg
-БЫЛО
+```
+#### Меняем логический том с / в файле grub.cfg
+##### Было
 `
 rd.lvm.lv=VolGroup00/LogVol00
 `
-СТАЛО
+##### Стало
 `
 rd.lvm.lv=vg_root/lv_root
 `
-##Выходим из chroot и перезагружаемся. Том с корнем изменился.
-`
+#### Выходим из chroot и перезагружаемся. Том с корнем изменился.
+```
 [vagrant@lvm ~]$ lsblk
 NAME                    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
 sda                       8:0    0   40G  0 disk 
@@ -209,22 +213,22 @@ sdb                       8:16   0   10G  0 disk
 sdc                       8:32   0    2G  0 disk 
 sdd                       8:48   0    1G  0 disk 
 sde                       8:64   0    1G  0 disk
-`
-##Теперь мы можем удалить отмонтированный корневой раздел
-`
+```
+#### Теперь мы можем удалить отмонтированный корневой раздел
+```
 [root@lvm ~]# lvremove /dev/VolGroup00/LogVol00 
 Do you really want to remove active logical volume VolGroup00/LogVol00? [y/n]: y
   Logical volume "LogVol00" successfully removed
-`
-##И создать новый на 8ГБ с тем же именем
-`
+```
+#### И создать новый на 8ГБ с тем же именем
+```
 [root@lvm ~]# lvcreate -n VolGroup00/LogVol00 -L 8G /dev/VolGroup00
 WARNING: xfs signature detected on /dev/VolGroup00/LogVol00 at offset 0. Wipe it? [y/n]: y
   Wiping xfs signature on /dev/VolGroup00/LogVol00.
   Logical volume "LogVol00" created.
-`
-##Создаем на нем ФС xfs
-`
+```
+#### Создаем на нем ФС xfs
+```
 [root@lvm ~]# mkfs.xfs /dev/VolGroup00/LogVol00
 meta-data=/dev/VolGroup00/LogVol00 isize=512    agcount=4, agsize=524288 blks
          =                       sectsz=512   attr=2, projid32bit=1
@@ -235,13 +239,13 @@ naming   =version 2              bsize=4096   ascii-ci=0 ftype=1
 log      =internal log           bsize=4096   blocks=2560, version=2
          =                       sectsz=512   sunit=0 blks, lazy-count=1
 realtime =none                   extsz=4096   blocks=0, rtextents=0
-`
-##Монтируем данный раздел в отмонтированный после перезагрузки /mnt
+```
+#### Монтируем данный раздел в отмонтированный после перезагрузки /mnt
 `
 mount /dev/VolGroup00/LogVol00 /mnt
 `
-##И копируем в него данные с временного /
-`
+#### И копируем в него данные с временного /
+```
 [root@lvm ~]# xfsdump -J - /dev/vg_root/lv_root | xfsrestore -J - /mnt
 xfsrestore: using file dump (drive_simple) strategy
 xfsrestore: version 3.1.7 (dump format 3.0)
@@ -285,31 +289,34 @@ xfsdump: dump complete: 6 seconds elapsed
 xfsdump: Dump Status: SUCCESS
 xfsrestore: restore complete: 6 seconds elapsed
 xfsrestore: Restore Status: SUCCESS
-`
-##Снова подменяем корень с помощью chroot
-##Смонтируем необходимые для root каталоги
+```
+#### Снова подменяем корень с помощью chroot
+#### Смонтируем необходимые для root каталоги
 `
 for i in /proc/ /sys/ /dev/ /run/ /boot/; do mount --bind $i /mnt/$i; done 
 `
-##Сделаем подмену корня при помощи chroot
+#### Сделаем подмену корня при помощи chroot
 `
 chroot /mnt/ 
 `
-##Обновим grub
-`
+#### Обновим grub
+```
 grub2-mkconfig -o /boot/grub2/grub.cfg
 Generating grub configuration file ...
 Found linux image: /boot/vmlinuz-3.10.0-862.2.3.el7.x86_64
 Found initrd image: /boot/initramfs-3.10.0-862.2.3.el7.x86_64.img
 done
-
-`
-##Обновим образ initrd
+```
+#### Обновим образ initrd
 `
 [root@lvm /]# cd /boot ; for i in `ls initramfs-*img`; do dracut -v $i `echo $i|sed "s/initramfs-//g;  s/.img//g"` --force; done
-##Перезагружаемся
+`
+#### Перезагружаемся
+`
 [root@lvm ~]# reboot
-##Смотрим вывод lsblk. Корень переместился в уменьшенный раздел
+`
+#### Смотрим вывод lsblk. Корень переместился в уменьшенный раздел
+```
 [vagrant@lvm ~]$ lsblk
 NAME                    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
 sda                       8:0    0   40G  0 disk 
@@ -323,53 +330,59 @@ sdb                       8:16   0   10G  0 disk
 sdc                       8:32   0    2G  0 disk 
 sdd                       8:48   0    1G  0 disk 
 sde                       8:64   0    1G  0 disk 
-##Выходим из виртуальной машины и делаем  snapshot
-`
+```
+#### Выходим из виртуальной машины и делаем  snapshot
+```
 vagrant snapshot save lvm umenshiliKoren
 ==> lvm: Snapshotting the machine as 'umenshiliKoren'...
 ==> lvm: Snapshot saved! You can restore the snapshot at any time by
 ==> lvm: using `vagrant snapshot restore`. You can delete it using
 ==> lvm: `vagrant snapshot delete`.
-
-`
-###Приступаем к следующей задаче: Выделить том под /var - сделать в зеркале
-##Создаем PV на свободных дисках равного объема
+```
+### Приступаем к следующей задаче: Выделить том под /var - сделать в зеркале
+#### Создаем PV на свободных дисках равного объема
+```
 [root@lvm ~]# pvcreate /dev/sde /dev/sdd
   Physical volume "/dev/sde" successfully created.
   Physical volume "/dev/sdd" successfully created.
-##Создаем VG
+```
+#### Создаем VG
+```
 [root@lvm ~]# vgcreate vg_var /dev/sde /dev/sdd
   Volume group "vg_var" successfully created
-##Создаем LV
+```
+#### Создаем LV
+```
 [root@lvm ~]# lvcreate -L 950M -m1 -n lv_var vg_var
   Rounding up size to full physical extent 952.00 MiB
   Logical volume "lv_var" created.
-##Создаем ФС
+```
+#### Создаем ФС
 `
 mkfs.ext4 /dev/vg_var/lv_var 
 `
-##Монтируем раздел в mnt
+#### Монтируем раздел в mnt
 `
  mount /dev/vg_var/lv_var /mnt 
 `
-##Копируем раздел var в mnt т.е. в /dev/vg_var/lv_var 
+#### Копируем раздел var в mnt т.е. в /dev/vg_var/lv_var 
 `
 cp -aR /var/* /mnt/ # rsync -avHPSAX /var/ /mnt/ 
 `
-##Сохраняем содержимое старого var
+#### Сохраняем содержимое старого var
 `
 mkdir /tmp/oldvar && mv /var/* /tmp/oldvar 
 `
-##Отмонтируем /mnt и смонтируем /dev/vg_var/lv_var в /var
+#### Отмонтируем /mnt и смонтируем /dev/vg_var/lv_var в /var
 `
 mount /dev/vg_var/lv_var /var 
 `
-##Правим fstab для автоматического монтирования /var.(При помощи blkid получаем UUID блочного устройства vg_var-lv_var).
+#### Правим fstab для автоматического монтирования /var.(При помощи blkid получаем UUID блочного устройства vg_var-lv_var).
 `
 echo "`blkid | grep var: | awk '{print $2}'` /var ext4 defaults 0 0" >> /etc/fstab
 `
-##Удаляем временный LVM раздел
-`
+#### Удаляем временный LVM раздел
+```
 lvremove /dev/vg_root/lv_root 
 Do you really want to remove active logical volume vg_root/lv_root? [y/n]: y
   Logical volume "lv_root" successfully removed
@@ -377,33 +390,33 @@ Do you really want to remove active logical volume vg_root/lv_root? [y/n]: y
   Volume group "vg_root" successfully removed
 [root@lvm ~]# pvremove /dev/sdb
   Labels on physical volume "/dev/sdb" successfully wiped.
-`
-###сделать том для снапшотов
-##Генерируем файлы
+```
+### Cделать том для снапшотов
+#### Генерируем файлы
 `
 touch /home/file{1..20}
 `
-##Снимаем снапшот
-`
+#### Снимаем снапшот
+```
 lvcreate -L 100MB -s -n home_snap /dev/VolGroup00/LogVol_Home
 Rounding up size to full physical extent 128.00 MiB
   Logical volume "home_snap" created.
-`
-##Удаляем часть файлов
+```
+#### Удаляем часть файлов
 `
 rm -f /home/file{11..20}
 `
-##Размонтируем /home. Ошибка "Устройство занято".  
-`
+#### Размонтируем /home. Ошибка "Устройство занято".  
+```
 umount /home 
 umount: /home: target is busy.
         (In some cases useful info about processes that use
          the device is found by lsof(8) or fuser(1))
-`
-##Находим процессы которые занимают устройство, убиваем их, но это не помогает, т.к. при входе в оболочку уже возникает процесс.
+```
+#### Находим процессы которые занимают устройство, убиваем их, но это не помогает, т.к. при входе в оболочку уже возникает процесс.
 
-##Создаем lvm раздел 
-`
+#### Создаем lvm раздел 
+```
 pvcreate /dev/sdb
 Physical volume "/dev/sdb" successfully created.
 vgcreate vg_home /dev/sdb
@@ -412,10 +425,9 @@ lvcreate -n lv_home -l +100%FREE /dev/vg_home
 WARNING: xfs signature detected on /dev/vg_home/lv_home at offset 0. Wipe it? [y/n]: y
   Wiping xfs signature on /dev/vg_home/lv_home.
   Logical volume "lv_home" created.
-
-`
-##Создаем на нем ФС
-`
+```
+#### Создаем на нем ФС
+```
 mkfs.xfs /dev/vg_home/lv_home 
 meta-data=/dev/vg_home/lv_home   isize=512    agcount=4, agsize=655104 blks
          =                       sectsz=512   attr=2, projid32bit=1
@@ -427,14 +439,14 @@ log      =internal log           bsize=4096   blocks=2560, version=2
          =                       sectsz=512   sunit=0 blks, lazy-count=1
 realtime =none                   extsz=4096   blocks=0, rtextents=0
 
-`
-##Примонтируем новый раздел
+```
+#### Примонтируем новый раздел
 `
 mount /dev/vg_home/lv_home /mnt
 `
 
-##Копируем /home на новый раздел
-`
+#### Копируем /home на новый раздел
+```
 xfsdump -J - /dev/VolGroup00/LogVol_Home | xfsrestore -J - /mnt
 xfsrestore: using file dump (drive_simple) strategy
 xfsrestore: version 3.1.7 (dump format 3.0)
@@ -478,32 +490,31 @@ xfsrestore: directory post-processing
 xfsrestore: restoring non-directory files
 xfsrestore: restore complete: 0 seconds elapsed
 xfsrestore: Restore Status: SUCCESS
-
-`
-##Находим UUID нового раздела, копируем и вставляем в файл /etc/fstab вместо UUID раздела /home. Затем перезагружаем машину.
-` 
+```
+#### Находим UUID нового раздела, копируем и вставляем в файл /etc/fstab вместо UUID раздела /home. Затем перезагружаем машину.
+```
 blkid | grep _home
 /dev/mapper/vg_home-lv_home: UUID="a792f530-8e19-41ff-966a-bfb49c2b47a7" TYPE="xfs"
-`
-##Таким образом мы подменяем /home для того чтобы его размонтировать. После перезагрузки наш реальный /home раздел уже отмонтирован и можно восстанавливать его из снапшота.
-`
+```
+#### Таким образом мы подменяем /home для того чтобы его размонтировать. После перезагрузки наш реальный /home раздел уже отмонтирован и можно восстанавливать его из снапшота.
+```
 lvconvert --merge /dev/VolGroup00/home_snap
   Merging of volume VolGroup00/home_snap started.
   VolGroup00/LogVol_Home: Merged: 100.00%
-`
-##Возвращаем UUID /home на место и перезагружаемся
-`
+```
+#### Возвращаем UUID /home на место и перезагружаемся
+```
 blkid | grep LogVol_Home
 /dev/mapper/VolGroup00-LogVol_Home: UUID="5eb1ddd6-63f2-4261-8914-c9026884d268" TYPE="xfs" 
-`
-##Проверяем данные в /home
-`
+```
+#### Проверяем данные в /home
+```
 ls /home/
 file1   file11  file13  file15  file17  file19  file20  file4  file6  file8  vagrant
 file10  file12  file14  file16  file18  file2   file3   file5  file7  file9
-`
-##Данные восстановлены. 
-`
+```
+#### Данные восстановлены. 
+```
 lsblk
 NAME                       MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
 sda                          8:0    0   40G  0 disk 
@@ -526,9 +537,10 @@ sde                          8:64   0    1G  0 disk
 │ └─vg_var-lv_var          253:8    0  952M  0 lvm  /var
 └─vg_var-lv_var_rimage_0   253:4    0  952M  0 lvm  
   └─vg_var-lv_var          253:8    0  952M  0 lvm  /var
-`
-##lvm раздел со снапшотом исчез т.к. был объединен с VolGroup00-LogVol_Home 
-##Можно удалить vg_home-lv_home 
+```
+#### lvm раздел со снапшотом исчез т.к. был объединен с VolGroup00-LogVol_Home 
+#### Можно удалить vg_home-lv_home 
+```
 lvremove /dev/vg_home/lv_home 
 Do you really want to remove active logical volume vg_home/lv_home? [y/n]: y
   Logical volume "lv_home" successfully removed
@@ -536,8 +548,7 @@ Do you really want to remove active logical volume vg_home/lv_home? [y/n]: y
   Volume group "vg_home" successfully removed
 [root@lvm ~]# pvremove /dev/sdb
   Labels on physical volume "/dev/sdb" successfully wiped.
+```
 
-`
 
-`
 
